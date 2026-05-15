@@ -1,15 +1,137 @@
+<!-- index.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<style>
-img {
-   width:30%;
-   }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SJHope | Results-Driven Education Support</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-<img src="Logo20220605.jpg">
+  <header class="hero">
+    <nav class="navbar">
+      <div class="logo-area">
+        <img src="Logo20220605.jpg" alt="SJHope Logo" class="logo" />
+        <h1>SJHope</h1>
+      </div>
 
+      <ul class="nav-links">
+        <li><a href="#mission">Mission</a></li>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#results">Results</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div class="hero-content">
+      <h2>Helping K-12 Schools Drive Real Student Outcomes</h2>
+      <p>
+        SJHope partners with schools to implement practical education and intervention
+        systems focused on measurable student growth — not just activities.
+      </p>
+
+      <a href="#contact" class="btn">Connect With Us</a>
+    </div>
+  </header>
+
+  <section id="mission" class="section">
+    <div class="container">
+      <h2>Our Mission</h2>
+      <p>
+        Schools face increasing pressure to improve student achievement, provide effective
+        interventions, and support every learner. SJHope helps educators identify what
+        works, implement actionable systems, and measure meaningful progress.
+      </p>
+
+      <p>
+        We believe interventions should lead to improved outcomes, stronger instruction,
+        and better support for students — not simply more programs or activities.
+      </p>
+    </div>
+  </section>
+
+  <section id="services" class="section alt-bg">
+    <div class="container">
+      <h2>What We Help Schools With</h2>
+
+      <div class="cards">
+        <div class="card">
+          <h3>MTSS & Intervention Systems</h3>
+          <p>
+            Build structured support systems that identify needs early and provide targeted
+            interventions for students.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Data-Informed Decisions</h3>
+          <p>
+            Use student data to guide instruction, intervention planning, and progress monitoring.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Instructional Improvement</h3>
+          <p>
+            Support teachers and leaders with practical tools that improve learning outcomes.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Student-Centered Results</h3>
+          <p>
+            Focus school resources on strategies that create measurable gains for students.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="results" class="section">
+    <div class="container">
+      <h2>Why Results Matter</h2>
+
+      <div class="results-grid">
+        <div class="result-box">
+          <span class="number" data-target="85">0</span>
+          <p>Improved intervention alignment</p>
+        </div>
+
+        <div class="result-box">
+          <span class="number" data-target="92">0</span>
+          <p>Focus on measurable student growth</p>
+        </div>
+
+        <div class="result-box">
+          <span class="number" data-target="100">0</span>
+          <p>Commitment to student success</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact" class="section alt-bg">
+    <div class="container contact-section">
+      <h2>Contact SJHope</h2>
+
+      <p>
+        Interested in partnering with SJHope to improve outcomes for students and schools?
+      </p>
+
+      <form class="contact-form">
+        <input type="text" placeholder="Your Name" required />
+        <input type="email" placeholder="Your Email" required />
+        <textarea placeholder="How can we help your school?" rows="5"></textarea>
+        <button type="submit">Send Message</button>
+      </form>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 SJHope. All Rights Reserved.</p>
+  </footer>
+
+  <script src="script.js"></script>
 </body>
 </html>
