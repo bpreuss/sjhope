@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Erlang-C Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1f2f4a;
+    --accent: #00e5ff;
+    --accent2: #ff6b35;
+    --accent3: #7c3aed;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --font-mono: 'Space Mono', monospace;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 2.5rem 3rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    gap: 2rem;
+    background: linear-gradient(180deg, rgba(0,229,255,0.04) 0%, transparent 100%);
+  }
+
+  .logo-mark {
+    width: 52px; height: 52px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(0,229,255,0.15);
+  }
+
+  h1 {
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  h1 span { color: var(--accent); }
+
+  .tagline {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    letter-spacing: 0.02em;
+  }
+
+  .main-layout {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem 3rem 4rem;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* === SIDEBAR === */
+  .sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  .card-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: 1.2rem;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.04);
+  }
+  .drop-zone .icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+  .drop-zone p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+  .drop-zone strong { color: var(--text); }
+  #fileInput { display: none; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 7px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    letter-spacing: 0.04em;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+  .btn-primary:hover { background: #33eaff; box-shadow: 0 0 20px rgba(0,229,255,0.3); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Field groups */
+  .field { margin-bottom: 1rem; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.02em;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select option { background: var(--surface2); }
+
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  /* Status badge */
+  .status {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+  }
+  .status .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .status.ok .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status.warn .dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .status.err .dot { background: var(--red); }
+  .status.idle .dot { background: var(--muted); }
+
+  /* Column mapper */
+  .col-map { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  /* === MAIN CONTENT === */
+  .content { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  /* Summary stats */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.blue::after { background: var(--accent); }
+  .stat-card.orange::after { background: var(--accent2); }
+  .stat-card.purple::after { background: var(--accent3); }
+  .stat-card.green::after { background: var(--green); }
+
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: var(--font-mono);
+    margin-bottom: 0.5rem;
+  }
+  .stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-card.blue .stat-value { color: var(--accent); }
+  .stat-card.orange .stat-value { color: var(--accent2); }
+  .stat-card.purple .stat-value { color: var(--accent3); }
+  .stat-card.green .stat-value { color: var(--green); }
+  .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+  .tab {
+    padding: 0.65rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    background: none;
+    border-top: none; border-left: none; border-right: none;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Chart container */
+  .chart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .chart-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .chart-title {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .chart-canvas-wrap { height: 260px; }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .table-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .table-title {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .table-scroll { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  thead th {
+    background: var(--surface2);
+    padding: 0.65rem 1rem;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    position: sticky; top: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th.num { text-align: right; }
+  tbody tr { border-bottom: 1px solid rgba(31,47,74,0.5); transition: background 0.1s; }
+  tbody tr:hover { background: rgba(0,229,255,0.03); }
+  tbody td { padding: 0.6rem 1rem; }
+  tbody td.num { text-align: right; font-family: var(--font-mono); font-size: 0.8rem; }
+
+  .pill {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 20px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .pill-green { background: rgba(16,185,129,0.12); color: var(--green); }
+  .pill-yellow { background: rgba(245,158,11,0.12); color: var(--yellow); }
+  .pill-red { background: rgba(239,68,68,0.12); color: var(--red); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+  }
+  .empty-state .big-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.4; }
+  .empty-state h3 { font-size: 1rem; color: var(--text); margin-bottom: 0.5rem; }
+  .empty-state p { font-size: 0.85rem; line-height: 1.6; }
+
+  /* CSV format hint */
+  .hint-box {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .hint-box strong { color: var(--accent); font-family: var(--font-mono); }
+
+  /* Legend */
+  .legend { display: flex; gap: 1.25rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Download btn */
+  #downloadBtn { display: none; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  @media (max-width: 1100px) {
+    .main-layout { grid-template-columns: 1fr; padding: 1.5rem; }
+    .sidebar { flex-direction: row; flex-wrap: wrap; }
+    .sidebar > * { flex: 1 1 300px; }
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    header { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark">E-C</div>
+  <div>
+    <h1>Erlang<span>-C</span> Calculator</h1>
+    <p class="tagline">Call centre staffing & queuing analysis · Upload CSV · Get instant results</p>
+  </div>
+</header>
+
+<div class="main-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="card">
+      <div class="card-title">01 / Upload Data</div>
+      <div class="drop-zone" id="dropZone">
+        <span class="icon">📂</span>
+        <p><strong>Drop your CSV here</strong><br>or click to browse</p>
+      </div>
+      <input type="file" id="fileInput" accept=".csv">
+      <div style="margin-top:1rem;" id="fileStatus">
+        <div class="status idle"><div class="dot"></div><span>No file loaded</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">02 / Column Mapping</div>
+      <div class="col-map" id="colMap">
+        <div class="field">
+          <label>Date/Period Column</label>
+          <select id="colDate"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>Hour Column (optional)</label>
+          <select id="colHour"><option value="">— none —</option></select>
+        </div>
+        <div class="field">
+          <label>Calls / Arrivals Column</label>
+          <select id="colCalls"><option value="">— select —</option></select>
+        </div>
+        <div class="field">
+          <label>AHT Column (seconds) <em style="color:var(--muted);font-size:0.7rem;">or enter fixed ↓</em></label>
+          <select id="colAHT"><option value="">— use fixed value —</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">03 / Parameters</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Fixed AHT (sec)</label>
+          <input type="number" id="fixedAHT" value="300" min="1">
+        </div>
+        <div class="field">
+          <label>Agents (N)</label>
+          <input type="number" id="numAgents" value="10" min="1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Target SL %</label>
+          <input type="number" id="targetSL" value="80" min="0" max="100">
+        </div>
+        <div class="field">
+          <label>SL Threshold (sec)</label>
+          <input type="number" id="slThresh" value="20" min="1">
+        </div>
+      </div>
+      <div class="field">
+        <label>Max Acceptable Wait (sec)</label>
+        <input type="number" id="maxWait" value="60" min="1">
+      </div>
+      <button class="btn btn-primary" id="calcBtn" style="width:100%;margin-top:0.5rem;" onclick="runCalculation()">
+        ▶ Calculate
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">CSV Format</div>
+      <div class="hint-box">
+        Expected columns (names flexible):<br>
+        <strong>date</strong> — 2024-01-15 or any date<br>
+        <strong>hour</strong> — 0–23 (optional)<br>
+        <strong>calls</strong> — arrivals in period<br>
+        <strong>aht</strong> — avg handle time (sec)<br><br>
+        Rows = one period per row.<br>
+        Missing AHT → fixed value used.
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="content">
+
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card blue">
+        <div class="stat-label">Avg Utilisation</div>
+        <div class="stat-value" id="statUtil">—</div>
+        <div class="stat-sub">Traffic / Agents</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Avg Erlang-C</div>
+        <div class="stat-value" id="statEC">—</div>
+        <div class="stat-sub">P(queuing)</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">Avg Wait (sec)</div>
+        <div class="stat-value" id="statWait">—</div>
+        <div class="stat-sub">Expected queue time</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Avg Service Level</div>
+        <div class="stat-value" id="statSL">—</div>
+        <div class="stat-sub" id="statSLSub">within threshold</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-header">
+        <div class="tabs" id="chartTabs">
+          <button class="tab active" onclick="switchTab('daily')">Daily</button>
+          <button class="tab" onclick="switchTab('hourly')">Hourly</button>
+        </div>
+        <div class="legend" id="chartLegend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Erlang-C</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Service Level</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div>Utilisation</div>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="table-title" id="tableTitle">Results — awaiting data</div>
+        <div style="display:flex;gap:0.75rem;align-items:center;">
+          <div class="tabs" style="border-bottom:none;">
+            <button class="tab active" id="tabDailyData" onclick="showTableTab('daily')">Daily</button>
+            <button class="tab" id="tabHourlyData" onclick="showTableTab('hourly')">Hourly</button>
+          </div>
+          <button class="btn btn-ghost" id="downloadBtn" onclick="downloadCSV()">⬇ Export CSV</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <div id="tableContainer">
+          <div class="empty-state">
+            <div class="big-icon">📊</div>
+            <h3>No results yet</h3>
+            <p>Upload a CSV file, configure your parameters,<br>and click Calculate to see Erlang-C results.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// =============================================
+//  ERLANG-C CORE (open-source implementation)
+//  Based on standard Erlang-C / C(N,A) formula
+// =============================================
+
+/**
+ * Erlang-C formula: probability that an arriving call must wait.
+ * @param {number} N  - number of agents
+ * @param {number} A  - traffic intensity in Erlangs = (calls/period * AHT) / period_seconds
+ * @returns {number}  - probability of waiting (0-1)
+ */
+function erlangC(N, A) {
+  if (N <= 0 || A <= 0) return 0;
+  if (A >= N) return 1; // overloaded — all calls queue
+
+  // Compute Erlang-C using iterative approach for numerical stability
+  // C(N,A) = (A^N / N!) * (N / (N-A)) / [ sum_{k=0}^{N-1} (A^k / k!) + (A^N / N!) * (N / (N-A)) ]
+
+  // Use log-factorials to avoid overflow
+  let sumRecipFactorial = 0;
+  let logA = Math.log(A);
+  let logFactK = 0; // log(0!) = 0
+  for (let k = 0; k < N; k++) {
+    if (k > 0) logFactK += Math.log(k);
+    sumRecipFactorial += Math.exp(k * logA - logFactK);
+  }
+
+  let logFactN = logFactK + Math.log(N);
+  let lastTerm = Math.exp(N * logA - logFactN);
+  let erlangB_N = lastTerm / (sumRecipFactorial + lastTerm); // Erlang-B at N agents
+
+  let ec = erlangB_N / (1 - (A / N) * (1 - erlangB_N));
+  return Math.min(1, Math.max(0, ec));
+}
+
+/**
+ * Expected waiting time for calls that DO queue (seconds).
+ * @param {number} N  - agents
+ * @param {number} A  - traffic (Erlangs)
+ * @param {number} h  - mean service time (seconds)
+ * @returns {number}  - E[wait] in seconds
+ */
+function expectedWaitTime(N, A, h, ec) {
+  if (N <= 0 || A <= 0 || A >= N) return (A >= N) ? Infinity : 0;
+  return ec * (h / (N - A));
+}
+
+/**
+ * Service Level: probability a call is answered within T seconds.
+ * SL(T) = 1 - C(N,A) * exp(-(N-A)*T/h)
+ * @param {number} N, A, h, T, ec
+ * @returns {number} service level (0-1)
+ */
+function serviceLevel(N, A, h, T, ec) {
+  if (A <= 0) return 1;
+  if (A >= N) return 0;
+  return 1 - ec * Math.exp(-(N - A) * T / h);
+}
+
+/**
+ * Recommended agents for a target service level.
+ * Iterates upward from ceil(A)+1 until SL is met.
+ */
+function recommendedAgents(A, h, T, targetSL_frac) {
+  if (A <= 0) return 1;
+  let n = Math.max(1, Math.ceil(A) + 1);
+  for (let i = 0; i < 500; i++) {
+    let ec = erlangC(n, A);
+    let sl = serviceLevel(n, A, h, T, ec);
+    if (sl >= targetSL_frac) return n;
+    n++;
+  }
+  return n;
+}
+
+// =============================================
+//  APP STATE
+// =============================================
+let rawData = [];
+let headers = [];
+let resultsByDay = [];
+let resultsByHour = [];
+let activeChart = null;
+let currentTableTab = 'daily';
+let currentChartTab = 'daily';
+
+// =============================================
+//  FILE UPLOAD
+// =============================================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  setStatus('warn', `Loading ${file.name}…`);
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: result => {
+      rawData = result.data;
+      headers = result.meta.fields || [];
+      populateColumnSelectors();
+      setStatus('ok', `${file.name} · ${rawData.length} rows`);
+      autoDetectColumns();
+    },
+    error: () => setStatus('err', 'Parse error — check CSV format')
+  });
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById('fileStatus');
+  el.innerHTML = `<div class="status ${type}"><div class="dot"></div><span>${msg}</span></div>`;
+}
+
+function populateColumnSelectors() {
+  ['colDate','colHour','colCalls','colAHT'].forEach(id => {
+    const sel = document.getElementById(id);
+    const first = id === 'colDate' ? '<option value="">— select —</option>' :
+                  id === 'colHour' ? '<option value="">— none —</option>' :
+                  id === 'colAHT'  ? '<option value="">— use fixed value —</option>' :
+                                     '<option value="">— select —</option>';
+    sel.innerHTML = first + headers.map(h => `<option value="${h}">${h}</option>`).join('');
+  });
+}
+
+function autoDetectColumns() {
+  const lc = h => h.toLowerCase();
+  const match = (patterns) => headers.find(h => patterns.some(p => lc(h).includes(p)));
+  const dateCol  = match(['date','day','period','time','datetime']);
+  const hourCol  = match(['hour','hr','heure']);
+  const callsCol = match(['call','arrival','volume','contact','interaction','inbound','count']);
+  const ahtCol   = match(['aht','handle','duration','talk','avg_handle']);
+
+  if (dateCol)  document.getElementById('colDate').value  = dateCol;
+  if (hourCol)  document.getElementById('colHour').value  = hourCol;
+  if (callsCol) document.getElementById('colCalls').value = callsCol;
+  if (ahtCol)   document.getElementById('colAHT').value   = ahtCol;
+}
+
+// =============================================
+//  CALCULATION
+// =============================================
+function runCalculation() {
+  if (!rawData.length) { alert('Please upload a CSV file first.'); return; }
+
+  const colDate  = document.getElementById('colDate').value;
+  const colHour  = document.getElementById('colHour').value;
+  const colCalls = document.getElementById('colCalls').value;
+  const colAHT   = document.getElementById('colAHT').value;
+
+  if (!colDate || !colCalls) { alert('Please map at least the Date and Calls columns.'); return; }
+
+  const fixedAHT  = parseFloat(document.getElementById('fixedAHT').value) || 300;
+  const N         = parseInt(document.getElementById('numAgents').value)  || 10;
+  const targetSL  = parseFloat(document.getElementById('targetSL').value) / 100 || 0.8;
+  const slThresh  = parseFloat(document.getElementById('slThresh').value) || 20;
+  const maxWait   = parseFloat(document.getElementById('maxWait').value)  || 60;
+
+  // Aggregate by day and hour
+  const dayMap  = {};
+  const hourMap = {};
+
+  rawData.forEach(row => {
+    const dateVal  = row[colDate] || 'Unknown';
+    const hourVal  = colHour ? (row[colHour] !== undefined ? row[colHour] : null) : null;
+    const calls    = parseFloat(row[colCalls]) || 0;
+    const aht      = colAHT ? (parseFloat(row[colAHT]) || fixedAHT) : fixedAHT;
+
+    // Day aggregation
+    if (!dayMap[dateVal]) dayMap[dateVal] = { calls: 0, ahtSum: 0, count: 0 };
+    dayMap[dateVal].calls   += calls;
+    dayMap[dateVal].ahtSum  += aht;
+    dayMap[dateVal].count++;
+
+    // Hour aggregation (by hour across all days)
+    if (hourVal !== null && hourVal !== '') {
+      const hKey = `Hour ${String(hourVal).padStart(2,'0')}`;
+      if (!hourMap[hKey]) hourMap[hKey] = { calls: 0, ahtSum: 0, count: 0 };
+      hourMap[hKey].calls  += calls;
+      hourMap[hKey].ahtSum += aht;
+      hourMap[hKey].count++;
+    }
+  });
+
+  function calcResults(map, periodSec) {
+    return Object.entries(map).map(([key, d]) => {
+      const avgAHT = d.ahtSum / d.count;
+      // Traffic intensity: calls_per_period * AHT / period_seconds
+      const A = (d.calls * avgAHT) / periodSec;
+      const util = A / N;
+      const ec   = erlangC(N, A);
+      const ew   = expectedWaitTime(N, A, avgAHT, ec);
+      const sl   = serviceLevel(N, A, avgAHT, slThresh, ec);
+      const recN = recommendedAgents(A, avgAHT, slThresh, targetSL);
+      return { period: key, calls: d.calls, avgAHT: avgAHT.toFixed(0), traffic: A.toFixed(3),
+               util: (util*100).toFixed(1), erlangC: ec.toFixed(4), expectedWait: ew.toFixed(1),
+               serviceLevel: (sl*100).toFixed(1), recAgents: recN };
+    }).sort((a,b) => a.period.localeCompare(b.period));
+  }
+
+  // Daily: period = 86400 seconds
+  resultsByDay  = calcResults(dayMap,  86400);
+  // Hourly: period = 3600 seconds
+  resultsByHour = calcResults(hourMap, 3600);
+
+  renderStats(resultsByDay);
+  renderChart(currentChartTab);
+  renderTable(currentTableTab);
+  document.getElementById('downloadBtn').style.display = 'inline-flex';
+}
+
+// =============================================
+//  STATS SUMMARY
+// =============================================
+function avg(arr, key) {
+  return arr.reduce((s,r) => s + parseFloat(r[key]), 0) / arr.length;
+}
+
+function renderStats(results) {
+  if (!results.length) return;
+  document.getElementById('statUtil').textContent = avg(results,'util').toFixed(1) + '%';
+  document.getElementById('statEC').textContent   = avg(results,'erlangC').toFixed(3);
+  document.getElementById('statWait').textContent = avg(results,'expectedWait').toFixed(0);
+  document.getElementById('statSL').textContent   = avg(results,'serviceLevel').toFixed(1) + '%';
+  document.getElementById('statSLSub').textContent =
+    `within ${document.getElementById('slThresh').value}s threshold`;
+}
+
+// =============================================
+//  CHART
+// =============================================
+function switchTab(tab) {
+  currentChartTab = tab;
+  document.querySelectorAll('#chartTabs .tab').forEach(t =>
+    t.classList.toggle('active', t.textContent.toLowerCase().trim() === tab));
+  renderChart(tab);
+}
+
+function renderChart(tab) {
+  const results = tab === 'daily' ? resultsByDay : resultsByHour;
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if (activeChart) activeChart.destroy();
+
+  if (!results.length) return;
+
+  activeChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: results.map(r => r.period),
+      datasets: [
+        {
+          label: 'Erlang-C (P queue)',
+          data: results.map(r => parseFloat(r.erlangC)),
+          backgroundColor: 'rgba(0,229,255,0.25)',
+          borderColor: 'rgba(0,229,255,0.9)',
+          borderWidth: 2,
+          yAxisID: 'y1',
+          type: 'line',
+          tension: 0.35,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          fill: true,
+          order: 1
+        },
+        {
+          label: 'Service Level %',
+          data: results.map(r => parseFloat(r.serviceLevel)),
+          backgroundColor: 'rgba(255,107,53,0.2)',
+          borderColor: 'rgba(255,107,53,0.9)',
+          borderWidth: 2,
+          yAxisID: 'y2',
+          type: 'line',
+          tension: 0.35,
+          pointRadius: 3,
+          fill: false,
+          order: 0
+        },
+        {
+          label: 'Utilisation %',
+          data: results.map(r => parseFloat(r.util)),
+          backgroundColor: 'rgba(124,58,237,0.35)',
+          borderColor: 'rgba(124,58,237,0.8)',
+          borderWidth: 1,
+          yAxisID: 'y2',
+          type: 'bar',
+          order: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111827',
+          borderColor: '#1f2f4a',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+          titleFont: { family: 'Space Mono' },
+          callbacks: {
+            label: ctx => {
+              const u = ctx.dataset.yAxisID === 'y1' ? '' : '%';
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)}${u}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#64748b', font: { family: 'Space Mono', size: 10 }, maxRotation: 45 },
+          grid: { color: 'rgba(31,47,74,0.5)' }
+        },
+        y1: {
+          type: 'linear', position: 'left',
+          min: 0, max: 1,
+          ticks: { color: 'rgba(0,229,255,0.7)', font: { family: 'Space Mono', size: 10 } },
+          grid: { color: 'rgba(31,47,74,0.4)' }
+        },
+        y2: {
+          type: 'linear', position: 'right',
+          min: 0, max: 100,
+          ticks: { color: 'rgba(255,107,53,0.7)', font: { family: 'Space Mono', size: 10 },
+                   callback: v => v + '%' },
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+}
+
+// =============================================
+//  TABLE
+// =============================================
+function showTableTab(tab) {
+  currentTableTab = tab;
+  document.getElementById('tabDailyData').classList.toggle('active', tab === 'daily');
+  document.getElementById('tabHourlyData').classList.toggle('active', tab === 'hourly');
+  renderTable(tab);
+}
+
+function renderTable(tab) {
+  const results = tab === 'daily' ? resultsByDay : resultsByHour;
+  const title = tab === 'daily' ? 'Daily Results' : 'Hourly Results';
+  document.getElementById('tableTitle').textContent = `${title} — ${results.length} rows`;
+
+  if (!results.length) {
+    document.getElementById('tableContainer').innerHTML = `
+      <div class="empty-state">
+        <div class="big-icon">🕐</div>
+        <h3>No hourly data</h3>
+        <p>Map an Hour column to see per-hour breakdown.</p>
+      </div>`;
+    return;
+  }
+
+  const slThresh = parseFloat(document.getElementById('targetSL').value) || 80;
+
+  const slPill = v => {
+    const n = parseFloat(v);
+    if (n >= slThresh) return `<span class="pill pill-green">${v}%</span>`;
+    if (n >= slThresh * 0.9) return `<span class="pill pill-yellow">${v}%</span>`;
+    return `<span class="pill pill-red">${v}%</span>`;
+  };
+
+  const utilPill = v => {
+    const n = parseFloat(v);
+    if (n < 80) return `<span class="pill pill-green">${v}%</span>`;
+    if (n < 95) return `<span class="pill pill-yellow">${v}%</span>`;
+    return `<span class="pill pill-red">${v}%</span>`;
+  };
+
+  document.getElementById('tableContainer').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th class="num">Calls</th>
+          <th class="num">Avg AHT (s)</th>
+          <th class="num">Traffic (Erlangs)</th>
+          <th class="num">Utilisation</th>
+          <th class="num">Erlang-C</th>
+          <th class="num">E[Wait] (s)</th>
+          <th class="num">Service Level</th>
+          <th class="num">Rec. Agents</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${results.map(r => `
+          <tr>
+            <td style="font-family:var(--font-mono);font-size:0.8rem;">${r.period}</td>
+            <td class="num">${r.calls.toLocaleString()}</td>
+            <td class="num">${r.avgAHT}</td>
+            <td class="num">${r.traffic}</td>
+            <td class="num">${utilPill(r.util)}</td>
+            <td class="num" style="color:var(--accent)">${r.erlangC}</td>
+            <td class="num">${parseFloat(r.expectedWait) > 9999 ? '∞' : r.expectedWait}</td>
+            <td class="num">${slPill(r.serviceLevel)}</td>
+            <td class="num" style="color:var(--accent3)">${r.recAgents}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// =============================================
+//  EXPORT
+// =============================================
+function downloadCSV() {
+  const tab = currentTableTab;
+  const results = tab === 'daily' ? resultsByDay : resultsByHour;
+  if (!results.length) return;
+  const header = ['Period','Calls','Avg_AHT_sec','Traffic_Erlangs','Utilisation_pct',
+                  'Erlang_C','Expected_Wait_sec','Service_Level_pct','Recommended_Agents'];
+  const rows = results.map(r =>
+    [r.period, r.calls, r.avgAHT, r.traffic, r.util, r.erlangC, r.expectedWait, r.serviceLevel, r.recAgents].join(','));
+  const blob = new Blob([header.join(',') + '\n' + rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `erlangc_${tab}_results.csv`; a.click();
+}
+
+// Init chart canvas size
+window.addEventListener('resize', () => { if (activeChart) renderChart(currentChartTab); });
+</script>
+</body>
+</html>
